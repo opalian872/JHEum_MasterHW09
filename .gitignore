@@ -1,0 +1,25 @@
+/.vs
+/Binaries
+/DerivedDataCache
+/Intermediate
+/Saved
+/Agents.md
+
+*.sln
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# Optional user-specific files
+*.suo
+*.user
+*.userprefs
+*.vsconfig
+
+# Unreal generated files
+*_BuiltData.uasset
+
+# Plugin generated folders
+Plugins/*/Binaries
+Plugins/*/Intermediate
