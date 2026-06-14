@@ -13,5 +13,8 @@ UCLASS()
 class JHEUM_HW09_API AMyGameStateBase : public AGameStateBase
 {
 	GENERATED_BODY()
-	
+
+public:
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastRPCBroadcastLoginMessage(const FString& InNameString);
 };

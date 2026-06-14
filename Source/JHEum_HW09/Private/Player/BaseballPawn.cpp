@@ -3,6 +3,8 @@
 
 #include "Player/BaseballPawn.h"
 
+#include "JHEum_HW09.h"
+
 // Sets default values
 ABaseballPawn::ABaseballPawn()
 {
@@ -15,7 +17,25 @@ ABaseballPawn::ABaseballPawn()
 void ABaseballPawn::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	// const FString NetRoleString = FBaseballNetworkDebug::GetRoleString(this);
+	// const FString CombinedString = FString::Printf(
+	// 	TEXT("ABaseballPawn::BeginPlay() %s [%s]"),
+	// 	*FBaseballNetworkDebug::GetNetModeString(this),
+	// 	*NetRoleString);
+	// FBaseballNetworkDebug::PrintString(this, CombinedString, 10.f);
+}
+
+void ABaseballPawn::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	// const FString NetRoleString = FBaseballNetworkDebug::GetRoleString(this);
+	// const FString CombinedString = FString::Printf(
+	// 	TEXT("ABaseballPawn::PossessedBy() %s [%s]"),
+	// 	*FBaseballNetworkDebug::GetNetModeString(this),
+	// 	*NetRoleString);
+	// FBaseballNetworkDebug::PrintString(this, CombinedString, 10.f);
 }
 
 // Called every frame
