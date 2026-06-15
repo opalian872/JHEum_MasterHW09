@@ -24,13 +24,33 @@ public:
 	bool IsGuessNumberString(const FString& InNumberString) const;
 	FString JudgeResult(const FString& InSecretNumberString, const FString& InGuessNumberString) const;
 	void ProcessChatMessage(ABaseballPlayerController* InChattingPlayerController, const FString& InChatMessageString);
-	void JudgeGame(ABaseballPlayerController* InChattingPlayerController, bool bIsWinningGuess);
+	bool JudgeGame(ABaseballPlayerController* InChattingPlayerController, bool bIsWinningGuess);
 	void ResetGame();
+
+	void StartTurn();
+	void AdvanceTurn();
+	void OnTurnTimerElapsed();
+
+	bool IsCurrentTurnPlayer(
+		ABaseballPlayerController* InPlayerController
+	) const;
+
+	void StartGame();
 
 protected:
 	FString GetGuessValidationMessage(const FString& InNumberString) const;
 
 	FString SecretNumberString;
+
+	FTimerHandle TurnTimerHandle;
+
+	UPROPERTY(EditDefaultsOnly)
+	int32 TurnTimeLimit = 10;
+
+	int32 RemainingTurnTime = 10;
+	int32 CurrentTurnIndex = 0;
+
+	bool bIsGameRunning = false;
 
 	UPROPERTY()
 	TArray<TObjectPtr<ABaseballPlayerController>> AllPlayerControllers;

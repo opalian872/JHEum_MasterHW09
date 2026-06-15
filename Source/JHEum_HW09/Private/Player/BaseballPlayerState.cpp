@@ -9,6 +9,7 @@ ABaseballPlayerState::ABaseballPlayerState()
 	: PlayerNameString(TEXT("None"))
 	, CurrentGuessCount(0)
 	, MaxGuessCount(3)
+	, bHasGuessed(false)
 {
 	bReplicates = true;
 }
@@ -20,6 +21,7 @@ void ABaseballPlayerState::GetLifetimeReplicatedProps(TArray<class FLifetimeProp
 	DOREPLIFETIME(ThisClass, PlayerNameString);
 	DOREPLIFETIME(ThisClass, CurrentGuessCount);
 	DOREPLIFETIME(ThisClass, MaxGuessCount);
+	DOREPLIFETIME(ThisClass, bHasGuessed);
 }
 
 FString ABaseballPlayerState::GetPlayerInfoString() const

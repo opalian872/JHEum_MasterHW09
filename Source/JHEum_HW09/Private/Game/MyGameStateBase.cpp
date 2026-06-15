@@ -3,6 +3,7 @@
 
 #include "Game/MyGameStateBase.h"
 
+#include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 #include "Player/BaseballPlayerController.h"
 
@@ -21,4 +22,13 @@ void AMyGameStateBase::MulticastRPCBroadcastLoginMessage_Implementation(const FS
 			}
 		}
 	}
+}
+
+void AMyGameStateBase::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ThisClass, CurrentTurnPlayerName);
+	DOREPLIFETIME(ThisClass, RemainingTurnTime);
+	DOREPLIFETIME(ThisClass, bIsGameRunning);
 }

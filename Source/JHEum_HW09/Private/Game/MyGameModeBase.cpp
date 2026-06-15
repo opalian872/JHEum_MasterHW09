@@ -102,6 +102,14 @@ void AMyGameModeBase::ProcessChatMessage(ABaseballPlayerController* InChattingPl
 		return;
 	}
 
+	if (bIsGameRunning == false)
+	{
+		InChattingPlayerController->ClientRPCPrintChatMessageString(
+			TEXT("게임을 먼저 시작해주세요.")
+		);
+		return;
+	}
+
 	FString GuessInputString = InChatMessageString;
 	const int32 SeparatorIndex = InChatMessageString.Find(TEXT(": "));
 	if (SeparatorIndex != INDEX_NONE)
@@ -131,6 +139,13 @@ void AMyGameModeBase::ProcessChatMessage(ABaseballPlayerController* InChattingPl
 		}
 		return;
 	}
+	if (IsCurrentTurnPlayer(InChattingPlayerController) == false)
+	{
+		InChattingPlayerController->ClientRPCPrintChatMessageString(
+			TEXT("현재 당신의 턴이 아닙니다.")
+		);
+		return;
+	}
 
 	const FString ValidationMessage = GetGuessValidationMessage(GuessInputString);
 	if (ValidationMessage.IsEmpty() == false)
@@ -146,6 +161,7 @@ void AMyGameModeBase::ProcessChatMessage(ABaseballPlayerController* InChattingPl
 	}
 
 	++BaseballPlayerState->CurrentGuessCount;
+	BaseballPlayerState->bHasGuessed = true;
 
 	const FString JudgeResultString = JudgeResult(SecretNumberString, GuessInputString);
 	const FString ResultMessageString = InChatMessageString + TEXT(" -> ") + JudgeResultString;
@@ -158,7 +174,12 @@ void AMyGameModeBase::ProcessChatMessage(ABaseballPlayerController* InChattingPl
 		}
 	}
 
-	JudgeGame(InChattingPlayerController, JudgeResultString.StartsWith(TEXT("3S")));
+	bool bGameEnded = JudgeGame(InChattingPlayerController, JudgeResultString.StartsWith(TEXT("3S")));
+
+	if (bGameEnded == false)
+	{
+		AdvanceTurn();
+	}
 }
 
 FString AMyGameModeBase::GetGuessValidationMessage(const FString& InNumberString) const
@@ -192,37 +213,49 @@ FString AMyGameModeBase::GetGuessValidationMessage(const FString& InNumberString
 	return FString();
 }
 
-void AMyGameModeBase::JudgeGame(ABaseballPlayerController* InChattingPlayerController, bool bIsWinningGuess)
+bool AMyGameModeBase::JudgeGame(ABaseballPlayerController* InChattingPlayerController, bool bIsWinningGuess)
 {
 	if (bIsWinningGuess == true)
 	{
-		ABaseballPlayerState* WinnerPlayerState = InChattingPlayerController->GetPlayerState<ABaseballPlayerState>();
+		ABaseballPlayerState* WinnerPlayerState =
+			InChattingPlayerController->GetPlayerState<ABaseballPlayerState>();
+
 		if (IsValid(WinnerPlayerState) == true)
 		{
-			const FText WinnerMessage = FText::FromString(WinnerPlayerState->PlayerNameString + TEXT(" has won the game."));
-			for (const TObjectPtr<ABaseballPlayerController>& BaseballPlayerController : AllPlayerControllers)
+			const FText WinnerMessage = FText::FromString(
+				WinnerPlayerState->PlayerNameString +
+				TEXT(" has won the game.")
+			);
+
+			for (const TObjectPtr<ABaseballPlayerController>& PlayerController :
+				AllPlayerControllers)
 			{
-				if (IsValid(BaseballPlayerController) == true)
+				if (IsValid(PlayerController) == true)
 				{
-					BaseballPlayerController->NotificationText = WinnerMessage;
+					PlayerController->NotificationText = WinnerMessage;
 				}
 			}
-			ResetGame();
-		}
 
-		return;
+			ResetGame();
+			return true;
+		}
 	}
 
 	bool bIsDraw = AllPlayerControllers.Num() > 0;
-	for (const TObjectPtr<ABaseballPlayerController>& BaseballPlayerController : AllPlayerControllers)
+
+	for (const TObjectPtr<ABaseballPlayerController>& PlayerController :
+		AllPlayerControllers)
 	{
-		if (IsValid(BaseballPlayerController) == false)
+		if (IsValid(PlayerController) == false)
 		{
 			continue;
 		}
 
-		ABaseballPlayerState* BaseballPlayerState = BaseballPlayerController->GetPlayerState<ABaseballPlayerState>();
-		if (IsValid(BaseballPlayerState) == false || BaseballPlayerState->CurrentGuessCount < BaseballPlayerState->MaxGuessCount)
+		ABaseballPlayerState* PlayerState =
+			PlayerController->GetPlayerState<ABaseballPlayerState>();
+
+		if (IsValid(PlayerState) == false ||
+			PlayerState->CurrentGuessCount < PlayerState->MaxGuessCount)
 		{
 			bIsDraw = false;
 			break;
@@ -232,19 +265,35 @@ void AMyGameModeBase::JudgeGame(ABaseballPlayerController* InChattingPlayerContr
 	if (bIsDraw == true)
 	{
 		const FText DrawMessage = FText::FromString(TEXT("Draw..."));
-		for (const TObjectPtr<ABaseballPlayerController>& BaseballPlayerController : AllPlayerControllers)
+
+		for (const TObjectPtr<ABaseballPlayerController>& PlayerController :
+			AllPlayerControllers)
 		{
-			if (IsValid(BaseballPlayerController) == true)
+			if (IsValid(PlayerController) == true)
 			{
-				BaseballPlayerController->NotificationText = DrawMessage;
+				PlayerController->NotificationText = DrawMessage;
 			}
 		}
+
 		ResetGame();
+		return true;
 	}
+
+	return false;
 }
+
 
 void AMyGameModeBase::ResetGame()
 {
+	GetWorldTimerManager().ClearTimer(TurnTimerHandle);
+	bIsGameRunning = false;
+	AMyGameStateBase* MyGameState = GetGameState<AMyGameStateBase>();
+	if (IsValid(MyGameState) == true)
+	{
+		MyGameState->bIsGameRunning = false;
+	}
+	CurrentTurnIndex = 0;
+	RemainingTurnTime = TurnTimeLimit;
 	SecretNumberString = GenerateSecretNumber();
 
 	for (const TObjectPtr<ABaseballPlayerController>& BaseballPlayerController : AllPlayerControllers)
@@ -258,6 +307,210 @@ void AMyGameModeBase::ResetGame()
 		if (IsValid(BaseballPlayerState) == true)
 		{
 			BaseballPlayerState->CurrentGuessCount = 0;
+			BaseballPlayerState->bHasGuessed = false;
+		}
+	}
+	if (IsValid(MyGameState) == true)
+	{
+		MyGameState->CurrentTurnPlayerName = TEXT("");
+		MyGameState->RemainingTurnTime = RemainingTurnTime;
+	}
+
+
+}
+
+void AMyGameModeBase::StartTurn()
+{
+	if (AllPlayerControllers.IsValidIndex(CurrentTurnIndex) == false)
+	{
+		return;
+	}
+
+	ABaseballPlayerController* CurrentController =
+		AllPlayerControllers[CurrentTurnIndex];
+
+	if (IsValid(CurrentController) == false)
+	{
+		AdvanceTurn();
+		return;
+	}
+
+	ABaseballPlayerState* CurrentPlayerState =
+		CurrentController->GetPlayerState<ABaseballPlayerState>();
+
+	if (IsValid(CurrentPlayerState) == false)
+	{
+		AdvanceTurn();
+		return;
+	}
+
+	if (CurrentPlayerState->CurrentGuessCount >=
+		CurrentPlayerState->MaxGuessCount)
+	{
+		AdvanceTurn();
+		return;
+	}
+
+	CurrentPlayerState->bHasGuessed = false;
+	RemainingTurnTime = TurnTimeLimit;
+
+	AMyGameStateBase* MyGameState =
+		GetGameState<AMyGameStateBase>();
+
+	if (IsValid(MyGameState) == true)
+	{
+		MyGameState->CurrentTurnPlayerName =
+			CurrentPlayerState->PlayerNameString;
+
+		MyGameState->RemainingTurnTime =
+			RemainingTurnTime;
+	}
+
+	GetWorldTimerManager().ClearTimer(TurnTimerHandle);
+
+	GetWorldTimerManager().SetTimer(
+		TurnTimerHandle,
+		this,
+		&ThisClass::OnTurnTimerElapsed,
+		1.0f,
+		true
+	);
+}
+
+void AMyGameModeBase::AdvanceTurn()
+{
+	GetWorldTimerManager().ClearTimer(TurnTimerHandle);
+
+	if (AllPlayerControllers.IsEmpty() == true)
+	{
+		return;
+	}
+
+	for (int32 Index = 0; Index < AllPlayerControllers.Num(); ++Index)
+	{
+		CurrentTurnIndex =
+			(CurrentTurnIndex + 1) % AllPlayerControllers.Num();
+
+		ABaseballPlayerController* NextController =
+			AllPlayerControllers[CurrentTurnIndex];
+
+		if (IsValid(NextController) == false)
+		{
+			continue;
+		}
+
+		ABaseballPlayerState* NextPlayerState =
+			NextController->GetPlayerState<ABaseballPlayerState>();
+
+		if (IsValid(NextPlayerState) == true &&
+			NextPlayerState->CurrentGuessCount <
+			NextPlayerState->MaxGuessCount)
+		{
+			StartTurn();
+			return;
 		}
 	}
 }
+
+void AMyGameModeBase::OnTurnTimerElapsed()
+{
+	--RemainingTurnTime;
+
+	AMyGameStateBase* MyGameState =
+		GetGameState<AMyGameStateBase>();
+
+	if (IsValid(MyGameState) == true)
+	{
+		MyGameState->RemainingTurnTime =
+			RemainingTurnTime;
+	}
+
+	if (RemainingTurnTime > 0)
+	{
+		return;
+	}
+
+	if (AllPlayerControllers.IsValidIndex(CurrentTurnIndex) == false)
+	{
+		return;
+	}
+
+	ABaseballPlayerController* CurrentController =
+		AllPlayerControllers[CurrentTurnIndex];
+
+	if (IsValid(CurrentController) == true)
+	{
+		ABaseballPlayerState* CurrentPlayerState =
+			CurrentController->GetPlayerState<ABaseballPlayerState>();
+
+		if (IsValid(CurrentPlayerState) == true)
+		{
+			CurrentPlayerState->bHasGuessed = false;
+			++CurrentPlayerState->CurrentGuessCount;
+
+			CurrentController->ClientRPCPrintChatMessageString(
+				TEXT("Time Out! 턴을 종료합니다.")
+			);
+		}
+	}
+
+	bool bGameEnded = JudgeGame(CurrentController, false);
+
+	if (bGameEnded == false)
+	{
+		AdvanceTurn();
+	}
+}
+
+bool AMyGameModeBase::IsCurrentTurnPlayer(ABaseballPlayerController* InPlayerController) const
+{
+	if (AllPlayerControllers.IsValidIndex(CurrentTurnIndex) == false)
+	{
+		return false;
+	}
+
+	return AllPlayerControllers[CurrentTurnIndex] == InPlayerController;
+}
+
+void AMyGameModeBase::StartGame()
+{
+	if (bIsGameRunning == true)
+	{
+		return;
+	}
+
+	if (AllPlayerControllers.Num() < 2)
+	{
+		for (const TObjectPtr<ABaseballPlayerController>& PlayerController :
+			AllPlayerControllers)
+		{
+			if (IsValid(PlayerController) == true)
+			{
+				PlayerController->ClientRPCPrintChatMessageString(TEXT("플레이할 인원이 부족합니다"));
+			}
+		}
+		return;
+	}
+
+	bIsGameRunning = true;
+	AMyGameStateBase* MyGameState = GetGameState<AMyGameStateBase>();
+	if (IsValid(MyGameState) == true)
+	{
+		MyGameState->bIsGameRunning = true;
+	}
+
+	CurrentTurnIndex = 0;
+	RemainingTurnTime = TurnTimeLimit;
+	SecretNumberString = GenerateSecretNumber();
+
+	for (const TObjectPtr<ABaseballPlayerController>& PlayerController : AllPlayerControllers)
+	{
+		if (IsValid(PlayerController) == true)
+		{
+			PlayerController->NotificationText = FText::GetEmpty();
+		}
+	}
+
+	StartTurn();
+}
+

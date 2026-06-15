@@ -17,4 +17,17 @@ class JHEUM_HW09_API AMyGameStateBase : public AGameStateBase
 public:
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastRPCBroadcastLoginMessage(const FString& InNameString);
+
+	virtual void GetLifetimeReplicatedProps(
+		TArray<class FLifetimeProperty>& OutLifetimeProps
+	) const override;
+
+	UPROPERTY(Replicated, BlueprintReadOnly)
+	FString CurrentTurnPlayerName;
+
+	UPROPERTY(Replicated, BlueprintReadOnly)
+	int32 RemainingTurnTime;
+
+	UPROPERTY(Replicated, BlueprintReadOnly)
+	bool bIsGameRunning = false;
 };

@@ -45,6 +45,22 @@ void ABaseballPlayerController::BeginPlay()
 			NotificationTextWidgetInstance->AddToViewport();
 		}
 	}
+	if (IsValid(TimerTextWidgetClass) == true)
+	{
+		TimerTextWidgetInstance = CreateWidget<UUserWidget>(this, TimerTextWidgetClass);
+		if (IsValid(TimerTextWidgetInstance) == true)
+		{
+			TimerTextWidgetInstance->AddToViewport();
+		}
+	}
+	if (IsValid(StartButtonWidgetClass) == true)
+	{
+		StartButtonWidgetInstance = CreateWidget<UUserWidget>(this, StartButtonWidgetClass);
+		if (IsValid(StartButtonWidgetInstance) == true)
+		{
+			StartButtonWidgetInstance->AddToViewport();
+		}
+	}
 }
 
 void ABaseballPlayerController::SetChatMessageString(const FString& InChatMessageString)
@@ -69,6 +85,42 @@ void ABaseballPlayerController::PrintChatMessageString(const FString& InChatMess
 	// FBaseballNetworkDebug::PrintString(this, CombinedMessageString, 10.f);
 
 	UKismetSystemLibrary::PrintString(this, InChatMessageString, true, true, FLinearColor::Red, 5.0f);
+}
+
+void ABaseballPlayerController::RequestStartGame()
+{
+	if (IsLocalController() == true)
+	{
+		ServerRPCStartGame();
+	}
+}
+
+void ABaseballPlayerController::RequestResetGame()
+{
+	if (IsLocalController() == true)
+	{
+		ServerRPCResetGame();
+	}
+}
+
+void ABaseballPlayerController::ServerRPCStartGame_Implementation()
+{
+	AMyGameModeBase* GameMode = GetWorld()->GetAuthGameMode<AMyGameModeBase>();
+
+	if (IsValid(GameMode) == true)
+	{
+		GameMode->StartGame();
+	}
+}
+
+void ABaseballPlayerController::ServerRPCResetGame_Implementation()
+{
+	AMyGameModeBase* GameMode = GetWorld()->GetAuthGameMode<AMyGameModeBase>();
+
+	if (IsValid(GameMode) == true)
+	{
+		GameMode->ResetGame();
+	}
 }
 
 void ABaseballPlayerController::ClientRPCPrintChatMessageString_Implementation(const FString& InChatMessageString)

@@ -32,6 +32,18 @@ public:
 	UFUNCTION(Server, Reliable)
 	void ServerRPCPrintChatMessageString(const FString& InChatMessageString);
 
+	UFUNCTION(BlueprintCallable)
+	void RequestStartGame();
+
+	UFUNCTION(BlueprintCallable)
+	void RequestResetGame();
+
+	UFUNCTION(Server, Reliable)
+	void ServerRPCStartGame();
+
+	UFUNCTION(Server, Reliable)
+	void ServerRPCResetGame();
+
 protected:
 	UPROPERTY(EditDefaultsOnly)
 	TSubclassOf<UBasicChatInput> ChatInputWidgetClass;
@@ -44,6 +56,18 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<UUserWidget> NotificationTextWidgetInstance;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<UUserWidget> TimerTextWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UUserWidget> TimerTextWidgetInstance;
+
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<UUserWidget> StartButtonWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UUserWidget> StartButtonWidgetInstance;
 
 	FString ChatMessageString;
 
